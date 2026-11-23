@@ -1,0 +1,42 @@
+# GitLab CI: the same static checks as .github/workflows/terraform-ci.yml.
+# No cloud credentials; nothing is planned or applied.
+#
+# ⚠️ CONFIRM [C21]: DoD GitLab instances often block Docker Hub and require
+# approved images (e.g. Iron Bank / an internal registry). If so, replace the
+# three `image:` values below with your approved equivalents:
+#   terraform  - any image with terraform 1.17.x
+#   python     - any image with python 3.10+ and pip (for checkov)
+#   bash/grep  - any image with bash, GNU grep and awk
+
+stages:
+  - validate
+  - scan
+
+fmt-validate:
+  stage: validate
+  image:
+    name: hashicorp/terraform:1.17.2 # ⚠️ CONFIRM [C21]
+    entrypoint: [""]
+  script:
+    - terraform fmt -check -recursive
+    - |
+      for dir in bootstrap stack; do
+        echo "== $dir"
+        terraform -chdir="$dir" init -backend=false -input=false
+        terraform -chdir="$dir" validate
+      done
+
+checkov:
+  stage: scan
+  image: python:3.12-slim # ⚠️ CONFIRM [C21]
+  script:
+    - pip install --quiet checkov==3.4.6
+    # Report-only; remove --soft-fail to make it blocking once C3/C10 are set.
+    - checkov -d . --framework terraform --compact --soft-fail --var-file envs/dev/terraform.tfvars
+
+customization-status:
+  stage: scan
+  image: debian:bookworm-slim # ⚠️ CONFIRM [C21]
+  allow_failure: true # shows a warning until CUSTOMIZE.md is complete
+  script:
+    - bash scripts/check-customization.sh

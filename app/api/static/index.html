@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CloudOne</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 40rem; margin: 4rem auto; padding: 0 1rem; }
+    pre { background: #f4f4f4; padding: 1rem; border-radius: 6px; overflow-x: auto; }
+  </style>
+</head>
+<body>
+  <h1>CloudOne</h1>
+  <p>Served by Lambda through a private API Gateway endpoint. Response from the API:</p>
+  <pre id="out">Loading…</pre>
+  <script>
+    // Works whether the page was opened as /<stage> or /<stage>/
+    const base = location.pathname.endsWith("/") ? location.pathname : location.pathname + "/";
+    fetch(base + "api/hello")
+      .then(r => r.json())
+      .then(d => { document.getElementById("out").textContent = JSON.stringify(d, null, 2); })
+      .catch(e => { document.getElementById("out").textContent = "API call failed: " + e; });
+  </script>
+</body>
+</html>

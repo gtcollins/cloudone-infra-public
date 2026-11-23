@@ -1,0 +1,59 @@
+name: terraform-ci
+
+# Static checks only: no cloud credentials, nothing is planned or applied.
+# The same checks run on GitLab via .gitlab-ci.yml.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: fmt + validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: 1.17.2
+
+      - name: Format check
+        run: terraform fmt -check -recursive
+
+      - name: Validate
+        run: |
+          for dir in bootstrap stack; do
+            echo "::group::$dir"
+            terraform -chdir="$dir" init -backend=false -input=false
+            terraform -chdir="$dir" validate
+            echo "::endgroup::"
+          done
+
+  security-scan:
+    name: checkov (report only)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Checkov (dev values)
+        # Scans with envs/dev/terraform.tfvars so results match what would deploy.
+        # Open findings clear as you set C3 (api_authorization) and C10 (access logs).
+        # Remove --soft-fail to make the scan blocking.
+        run: |
+          pip install --quiet checkov==3.4.6
+          checkov -d . --framework terraform --compact --soft-fail --var-file envs/dev/terraform.tfvars
+
+  customization-status:
+    name: customization status (report only)
+    runs-on: ubuntu-latest
+    continue-on-error: true # stays red until CUSTOMIZE.md is complete
+    steps:
+      - uses: actions/checkout@v7
+      - name: Values still to customize
+        run: bash scripts/check-customization.sh
